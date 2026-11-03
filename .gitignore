@@ -27,6 +27,15 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Android release artifacts and secrets
+*.apk
+*.aab
+*.ipa
+*.jks
+*.keystore
+android/key.properties
+android/local.properties
+
 # Symbolication related
 app.*.symbols
 

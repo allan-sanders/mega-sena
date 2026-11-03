@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Mega-Sena Smart'),
+            const Text('Dezena Certa MS'),
             Text(
               'Olá, ${widget.user.displayName}',
               style: const TextStyle(

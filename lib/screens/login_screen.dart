@@ -83,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 28),
                 const Text(
-                  'MEGA-SENA SMART',
+                  'DEZENA CERTA MS',
                   style: TextStyle(
                     color: AppTheme.neonEmerald,
                     fontSize: 13,

@@ -1,6 +1,16 @@
-# Mega-Sena Smart (Flutter - iOS & Android)
+# Dezena Certa MS (Flutter - Android)
 
-Aplicativo móvel multiplataforma (**iPhone e Android**) desenvolvido em **Flutter** para geração estatística de jogos da Mega-Sena com controle de apostas realizadas.
+Aplicativo móvel desenvolvido em Flutter para geração estatística de jogos da Mega-Sena com sincronização dos últimos 100 concursos e controle de combinações geradas.
+
+---
+
+## Nome e marca
+
+- Nome de publicação sugerido: `Dezena Certa MS`
+- Nome de exibição no app: `Dezena Certa MS`
+- E-mail de contato do responsável: `pattymagno14@gmail.com`
+
+Antes da publicação, confirme disponibilidade do nome e uso de marca na Google Play.
 
 ---
 
@@ -40,6 +50,14 @@ Aplicativo móvel multiplataforma (**iPhone e Android**) desenvolvido em **Flutt
 
 ---
 
+## Importante sobre persistência e combinações geradas
+
+A funcionalidade de evitar repetição de combinações geradas funciona com base local no dispositivo. O histórico fica salvo em `SharedPreferences` e não é sincronizado entre aparelhos ou re-instalações por padrão.
+
+Se a intenção for persistência cross-device ou recuperação após reinstalação, será necessário implementar backup em nuvem, autenticação e sincronização de dados. Até lá, a interface e a descrição devem informar claramente essa limitação.
+
+---
+
 ## Como Executar o Projeto
 
 Certifique-se de ter o [Flutter SDK](https://docs.flutter.dev/get-started/install) instalado em sua máquina:
@@ -54,6 +72,27 @@ flutter pub get
 # 3. Execute os testes automatizados das regras de negócio:
 flutter test
 
-# 4. Rode no iPhone (Simulator/Dispositivo) ou Android (Emulador/Dispositivo):
+# 4. Rode no Android (Emulador/Dispositivo):
 flutter run
 ```
+
+---
+
+## Gerar o arquivo para publicação
+
+Para gerar o bundle Android de release para Google Play:
+
+```bash
+cd /home/s630589102/wrk-kiro/wrk-antigravity/mega-sena
+flutter clean
+flutter pub get
+flutter build appbundle
+```
+
+Arquivo gerado:
+
+```text
+build/app/outputs/bundle/release/app-release.aab
+```
+
+Esse é o artefato que deve ser enviado no Google Play Console.

@@ -67,7 +67,7 @@ class _MegaSenaAppState extends State<MegaSenaApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mega-Sena Smart',
+      title: 'Dezena Certa MS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: _checkingSession

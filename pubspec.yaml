@@ -1,5 +1,5 @@
 name: mega_sena_app
-description: Aplicativo inteligente gerador de jogos da Mega-Sena (iOS & Android) com sincronização semanal e distribuição estatística 30%/40%/30%.
+description: Aplicativo de análise e geração de jogos da Mega-Sena com estatísticas dos últimos 100 concursos.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -18,6 +18,27 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/
+    - assets/splash/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#120B2F"
+  adaptive_icon_foreground: "assets/icon/icon.png"
+  ios_icon_size: 1024
+
+flutter_native_splash:
+  color: "#120B2F"
+  image: "assets/splash/splash.png"
+  android: true
+  ios: true
+  web: false
