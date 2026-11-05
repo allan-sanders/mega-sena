@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/batch_request_item.dart';
 import '../models/bet_game.dart';
 import '../models/frequency_stats.dart';
@@ -11,6 +12,7 @@ import '../widgets/game_card.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/stats_banner_card.dart';
 import 'generator_sheet.dart';
+import 'manual_game_sheet.dart';
 
 enum GameFilter { all, pending, completed }
 
@@ -51,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initializeData() async {
     setState(() => _isSyncing = true);
 
-    // 1. Sincroniza os últimos 100 jogos (respeitando a regra de 1x por semana com base no domingo)
     final stats = await widget.syncService.ensureWeeklySync(
       onProgress: (msg, progress) {
         if (mounted) {
@@ -63,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    // 2. Carrega os jogos atuais salvos localmente no dispositivo
     final savedGames = await widget.storageService.loadGames();
 
     if (mounted) {
@@ -85,9 +85,76 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.storageService.saveGames(_games);
   }
 
-  /// Abre o modal de Novo Jogo.
-  /// Se o usuário já possui um combinado de jogos ativo, exibe primeiro um diálogo de
-  /// confirmação informando que os jogos atuais serão excluídos ao solicitar um novo.
+  Future<void> _deleteGame(BetGame game) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppTheme.surfaceCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppTheme.warmCoral, width: 1.2),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.delete_outline, color: AppTheme.warmCoral),
+              SizedBox(width: 10),
+              Text(
+                'Excluir Jogo?',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Deseja excluir permanentemente o Jogo #${game.sequenceNumber.toString().padLeft(3, '0')}?',
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warmCoral),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true && mounted) {
+      setState(() {
+        _games.removeWhere((g) => g.id == game.id);
+      });
+      await widget.storageService.saveGames(_games);
+    }
+  }
+
+  Future<void> _exportGames() async {
+    if (_games.isEmpty) return;
+
+    final sb = StringBuffer();
+    sb.writeln('=== DEZENA CERTA MS ===');
+    sb.writeln('Total de Jogos: ${_games.length}');
+    sb.writeln('');
+
+    for (final game in _games) {
+      final status = game.isCompleted ? '[REALIZADO]' : '[PENDENTE]';
+      final numbers = game.numbers.map((n) => n.toString().padLeft(2, '0')).join(' - ');
+      sb.writeln('Jogo #${game.sequenceNumber.toString().padLeft(3, '0')} $status');
+      sb.writeln(numbers);
+      sb.writeln('');
+    }
+
+    await Share.share(sb.toString(), subject: 'Meus Jogos - Dezena Certa MS');
+  }
+
   Future<void> _openNewGamesBuilder() async {
     if (_stats == null) return;
 
@@ -121,8 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
             content: Text(
               'Você possui atualmente um combinado de ${_games.length} jogo(s) '
               '($completedCount realizado(s) e ${_games.length - completedCount} pendente(s)).\n\n'
-              'O sistema mantém apenas 1 combinado ativo por vez. Ao gerar um novo combinado, '
-              'todos os jogos anteriores serão excluídos permanentemente. Deseja continuar?',
+              'Ao gerar um NOVO LOTE, todos os jogos anteriores serão excluídos permanentemente. Deseja continuar?',
               style: const TextStyle(
                 color: AppTheme.textSecondary,
                 fontSize: 14,
@@ -144,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Sim, criar novo'),
+                child: const Text('Sim, criar novo lote'),
               ),
             ],
           );
@@ -171,9 +237,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Abre o modal para ADICIONAR novos jogos aos já existentes na base,
-  /// mantendo todos os jogos atuais (inclusive os marcados como realizados)
-  /// e garantindo que os novos jogos não repitam nenhum jogo já criado.
   void _openAppendGamesBuilder() {
     if (_stats == null) return;
 
@@ -205,10 +268,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openManualGameBuilder() {
+    if (_stats == null) return;
+
+    if (_games.length >= GameGeneratorService.maxTotalGames) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você já atingiu o limite máximo de 999 jogos na base atual.'),
+        ),
+      );
+      return;
+    }
+
+    final nextSequence = _games.isEmpty ? 1 : _games.map((g) => g.sequenceNumber).reduce((a, b) => a > b ? a : b) + 1;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return ManualGameSheet(
+          nextSequenceNumber: nextSequence,
+          onSaveManualGame: (newGame) async {
+            final updatedList = [..._games, newGame];
+            await widget.storageService.saveGames(updatedList);
+            if (mounted) {
+              setState(() {
+                _games = updatedList;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Jogo manual adicionado com sucesso!'),
+                ),
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleGenerateNewBatch(List<BatchRequestItem> requests) async {
     if (_stats == null) return;
 
-    // Regra de negócio: Ao solicitar um novo jogo, apaga os jogos atuais
     await widget.storageService.clearGames();
 
     final newGames = widget.generatorService.generateBatch(
@@ -237,8 +339,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleAppendBatch(List<BatchRequestItem> requests) async {
     if (_stats == null) return;
 
-    // Gera os novos jogos passando a lista atual (`existingGames: _games`)
-    // para garantir que nenhum jogo adicionado repita qualquer jogo já existente na base
     final addedGames = widget.generatorService.generateBatch(
       requests: requests,
       stats: _stats!,
@@ -296,11 +396,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Baseada nos últimos ${stats.totalDrawsAnalyzed} concursos (atualização semanal aos domingos).',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 13,
-                    ),
+                    'Baseada nos últimos ${stats.totalDrawsAnalyzed} concursos.',
+                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                   ),
                   const SizedBox(height: 18),
                   _buildTierSection(
@@ -363,19 +460,12 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 14),
                 ),
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 11.5,
-                ),
+                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11.5),
               ),
             ],
           ),
@@ -468,8 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: _syncProgress,
                     minHeight: 6,
                     backgroundColor: AppTheme.surfaceCard,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppTheme.neonEmerald),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.neonEmerald),
                   ),
                 ),
               ],
@@ -500,12 +589,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Tabela 30/40/30',
+            tooltip: 'Novo Lote',
+            onPressed: _openNewGamesBuilder,
+            icon: const Icon(Icons.autorenew_rounded, color: AppTheme.goldHighlight),
+          ),
+          IconButton(
+            tooltip: 'Exportar Jogos',
+            onPressed: _games.isNotEmpty ? _exportGames : null,
+            icon: Icon(
+              Icons.ios_share_rounded,
+              color: _games.isNotEmpty ? AppTheme.coolCyan : AppTheme.textSecondary.withValues(alpha: 0.3),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Estatísticas',
             onPressed: _showTiersDetailsModal,
             icon: const Icon(Icons.analytics_outlined, color: AppTheme.neonEmerald),
           ),
           IconButton(
-            tooltip: 'Sair da conta Google',
+            tooltip: 'Sair da conta',
             onPressed: widget.onLogout,
             icon: const Icon(Icons.logout_rounded, color: AppTheme.textSecondary),
           ),
@@ -522,10 +624,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   onInspectTiers: _showTiersDetailsModal,
                 ),
               const SizedBox(height: 12),
+
               if (_games.isNotEmpty) ...[
-                ProgressHeader(
-                  totalGames: _games.length,
-                  completedGames: completedCount,
+                // Cabeçalho e botão NOVO LOTE na parte superior
+                Row(
+                  children: [
+                    Expanded(
+                      child: ProgressHeader(
+                        totalGames: _games.length,
+                        completedGames: completedCount,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 _buildFilterTabs(completedCount),
@@ -555,8 +665,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 key: ValueKey(game.id),
                                 game: game,
                                 stats: _stats,
-                                onToggleCompleted: (done) =>
-                                    _toggleGameCompleted(game, done),
+                                onToggleCompleted: (done) => _toggleGameCompleted(game, done),
+                                onDeleteGame: () => _deleteGame(game),
                               );
                             },
                           ),
@@ -568,68 +678,48 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: _games.isEmpty
-            ? SizedBox(
-                width: double.infinity,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: _openManualGameBuilder,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppTheme.surfaceCard,
+                    foregroundColor: AppTheme.textPrimary,
+                    side: const BorderSide(color: AppTheme.borderSubtle, width: 1.3),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: const Icon(Icons.edit_note_rounded, size: 20),
+                  label: const Text(
+                    'MANUAL',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: SizedBox(
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: _openNewGamesBuilder,
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('GERAR JOGOS (ATÉ 999)'),
+                  onPressed: _games.isEmpty ? _openNewGamesBuilder : _openAppendGamesBuilder,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  icon: Icon(_games.isEmpty ? Icons.auto_awesome_rounded : Icons.playlist_add_rounded, size: 22),
+                  label: Text(
+                    _games.isEmpty ? 'GERAR JOGOS' : 'NOVOS JOGOS',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
                 ),
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: OutlinedButton.icon(
-                        onPressed: _openNewGamesBuilder,
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: AppTheme.surfaceCard.withValues(alpha: 0.95),
-                          foregroundColor: AppTheme.goldHighlight,
-                          side: const BorderSide(
-                            color: AppTheme.goldHighlight,
-                            width: 1.3,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: const Icon(Icons.autorenew_rounded, size: 20),
-                        label: const Text(
-                          'NOVO LOTE',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 1,
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: _openAppendGamesBuilder,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                        icon: const Icon(Icons.playlist_add_rounded, size: 22),
-                        label: const Text(
-                          'ADICIONAR JOGOS',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -727,7 +817,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Toque no botão abaixo para escolher a quantidade de dezenas (6 a 20) e gerar até 999 jogos baseados nas estatísticas dos últimos 100 sorteios.',
+              'Gere novos jogos baseados nas estatísticas ou adicione jogos manualmente.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.textSecondary,

@@ -9,12 +9,14 @@ class GameCard extends StatelessWidget {
   final BetGame game;
   final FrequencyStats? stats;
   final ValueChanged<bool> onToggleCompleted;
+  final VoidCallback onDeleteGame;
 
   const GameCard({
     super.key,
     required this.game,
     required this.stats,
     required this.onToggleCompleted,
+    required this.onDeleteGame,
   });
 
   @override
@@ -69,7 +71,6 @@ class GameCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Linha superior: Número do jogo, dezenas e Checkbox "Realizado"
                 Row(
                   children: [
                     Container(
@@ -122,10 +123,20 @@ class GameCard extends StatelessWidget {
                       ),
                     ],
                     const Spacer(),
-                    // Botão / Checkbox customizado de Jogo Realizado
+
+                    // Excluir Jogo
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.warmCoral),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: EdgeInsets.zero,
+                      onPressed: onDeleteGame,
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Realizado/Marcar
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: isDone
                             ? AppTheme.neonEmerald
@@ -146,23 +157,12 @@ class GameCard extends StatelessWidget {
                             size: 16,
                             color: isDone ? const Color(0xFF032212) : AppTheme.neonEmerald,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            isDone ? 'REALIZADO' : 'MARCAR',
-                            style: TextStyle(
-                              color: isDone ? const Color(0xFF032212) : AppTheme.textPrimary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                // Esferas das dezenas sorteadas
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,

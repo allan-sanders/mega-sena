@@ -42,19 +42,20 @@ Antes da publicação, confirme disponibilidade do nome e uso de marca na Google
    - `18 dez`: 8q, 7m, 3b
    - `19 dez`: 8q, 7m, 4b
    - `20 dez`: 9q, 7m, 4b
-5. **Gerador em Lote (Até 999 Jogos), Adição Sem Repetição e Controle de Jogos Realizados**:
-   - Permite combinar múltiplos tamanhos de jogos em um único pedido (respeitando o teto global de **999 jogos** na base).
-   - **Adicionar Jogos (`ADICIONAR JOGOS`)**: Preserva todos os jogos atuais (inclusive os que já foram marcados como realizados), calcula a cota restante até 999, continua a numeração sequencial e garante **zero repetição** tanto entre os novos jogos quanto em relação aos jogos já existentes na base.
-   - **Novo Lote (`NOVO LOTE`)**: Exibe um alerta de confirmação informando quantos jogos realizados/pendentes existem na base e, ao confirmar, exclui os jogos atuais para gerar um novo combinado do zero.
-   - Permite marcar quais jogos já foram realizados (`REALIZADO`) com barra de progresso animada e filtros (`Todos`, `Pendentes`, `Realizados`).
+5. **Gerador em Lote e Gestão Avançada (Até 999 Jogos)**:
+   - **Adicionar Jogos**: Adiciona novas combinações mantendo as atuais e impedindo repetições.
+   - **Novo Lote**: Apaga base atual para criar um conjunto do zero.
+   - **Inserção Manual (`MANUAL`)**: Modal de escolha manual (6 a 20 dezenas). Jogos inseridos manualmente integram a base e respeitam o limite de 999.
+   - **Exportar Jogos (`Compartilhar`)**: Formata a lista completa com marcações de PENDENTE/REALIZADO em texto, permitindo rápido envio no WhatsApp ou impressão.
+   - **Excluir Jogo**: Cada cartela gerada pode ser excluída individualmente (ícone Lixeira).
 
 ---
 
 ## Importante sobre persistência e combinações geradas
 
-A funcionalidade de evitar repetição de combinações geradas funciona com base local no dispositivo. O histórico fica salvo em `SharedPreferences` e não é sincronizado entre aparelhos ou re-instalações por padrão.
+A funcionalidade de evitar repetição de combinações geradas funciona com base local no dispositivo. O histórico fica salvo em `SharedPreferences` e não é sincronizado entre aparelhos ou re-instalações por padrão (entretanto as atualizações de APK por cima mantêm a base intacta).
 
-Se a intenção for persistência cross-device ou recuperação após reinstalação, será necessário implementar backup em nuvem, autenticação e sincronização de dados. Até lá, a interface e a descrição devem informar claramente essa limitação.
+Se a intenção for persistência cross-device, será necessário implementar backup em nuvem. Até lá, a interface e a descrição devem informar claramente essa limitação.
 
 ---
 
@@ -88,11 +89,3 @@ flutter clean
 flutter pub get
 flutter build appbundle
 ```
-
-Arquivo gerado:
-
-```text
-build/app/outputs/bundle/release/app-release.aab
-```
-
-Esse é o artefato que deve ser enviado no Google Play Console.
